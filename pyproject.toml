@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codenose"
-version = "0.1.0"
+version = "0.2.0"
 description = "Code smell detection for LLMs - sniffs out duplicate logic, architecture violations, and other blind spots"
 readme = "README.md"
 requires-python = ">=3.11"
