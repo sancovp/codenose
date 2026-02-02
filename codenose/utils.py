@@ -14,6 +14,9 @@ from .util_deps.config import (
     DEFAULT_MAX_FUNCTION_LINES,
     DEFAULT_MIN_DUP_BLOCK_SIZE,
     DEFAULT_MIN_LOG_LINES,
+    ARCH_LOCK_FILE,
+    is_arch_locked,
+    set_arch_lock,
 )
 
 from .util_deps.detectors import (
@@ -36,7 +39,7 @@ from .util_deps.scanners import (
 
 from .util_deps.formatters import (
     format_smell_table,
-    format_codenose_output,
+    format_output,
 )
 
 __all__ = [
@@ -49,6 +52,9 @@ __all__ = [
     "DEFAULT_MAX_FUNCTION_LINES",
     "DEFAULT_MIN_DUP_BLOCK_SIZE",
     "DEFAULT_MIN_LOG_LINES",
+    "ARCH_LOCK_FILE",
+    "is_arch_locked",
+    "set_arch_lock",
     # Detectors
     "check_syntax_errors",
     "check_file_length",
@@ -65,5 +71,5 @@ __all__ = [
     "scan_directory",
     # Formatters
     "format_smell_table",
-    "format_codenose_output",
+    "format_output",
 ]

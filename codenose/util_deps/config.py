@@ -1,5 +1,27 @@
 # codenose ignore
 """Default configuration values for CodeNose."""
+import os
+from pathlib import Path
+
+# Architecture lock file location
+ARCH_LOCK_FILE = Path(os.path.expanduser("~/.claude/.codenose_arch_lock"))
+
+
+def is_arch_locked() -> bool:
+    """Check if architecture lock mode is enabled."""
+    return ARCH_LOCK_FILE.exists()
+
+
+def set_arch_lock(enabled: bool) -> bool:
+    """Enable or disable architecture lock mode. Returns new state."""
+    if enabled:
+        ARCH_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        ARCH_LOCK_FILE.touch()
+    else:
+        if ARCH_LOCK_FILE.exists():
+            ARCH_LOCK_FILE.unlink()
+    return is_arch_locked()
+
 
 DEFAULT_CANONICAL_FILENAMES = {
     "__init__.py",
