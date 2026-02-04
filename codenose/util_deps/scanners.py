@@ -8,6 +8,15 @@ from ..models import ScanResult, DirectoryScanResult, FullConfig, RuleConfig
 from .detectors import BUILTIN_RULES
 from .loader import load_full_config, import_rule_function
 
+# TDD mode file location
+TDD_MODE_FILE = Path("/tmp/codenose_tdd")
+
+def _is_tdd_mode() -> bool:
+    """Check if TDD mode is enabled."""
+    if TDD_MODE_FILE.exists():
+        return TDD_MODE_FILE.read_text().strip().upper() == "ON"
+    return False
+
 
 def scan_file(file_path: str, config: Optional[FullConfig] = None) -> ScanResult:
     """Scan a single file using configured rules."""
@@ -42,9 +51,12 @@ def scan_file(file_path: str, config: Optional[FullConfig] = None) -> ScanResult
             # Function doesn't accept extra kwargs
             smells = rule_func(content, file_path)
 
-        # Apply severity override
+        # Apply severity override (TDD mode makes coverage CRITICAL)
         for smell in smells:
-            smell.severity_override = rule_cfg.severity
+            if rule_name == "coverage" and _is_tdd_mode():
+                smell.severity_override = "critical"
+            else:
+                smell.severity_override = rule_cfg.severity
 
         all_smells.extend(smells)
 

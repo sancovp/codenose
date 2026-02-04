@@ -247,6 +247,204 @@ def check_facade_logic(content: str, file_path: str, facade_files: set[str] = No
 
 
 # =============================================================================
+# TEST COVERAGE DETECTION
+# =============================================================================
+
+def check_test_coverage(content: str, file_path: str,
+                        test_dirs: list[str] = None,
+                        test_patterns: list[str] = None) -> list[Smell]:
+    """
+    Check if public functions/classes have corresponding tests.
+
+    For each public function foo() in utils.py:
+      - Look for test_foo* in test files
+    For each public class Foo:
+      - Look for TestFoo or test_foo_* in test files
+    """
+    test_dirs = test_dirs or ["tests", "test"]
+    test_patterns = test_patterns or DEFAULT_TEST_PATTERNS
+
+    path = Path(file_path)
+
+    # Skip test files themselves
+    if any(re.match(p, path.name) for p in test_patterns):
+        return []
+
+    # Skip non-Python files
+    if not path.name.endswith('.py'):
+        return []
+
+    # Skip files in exempt dirs
+    if path.parent.name in DEFAULT_EXEMPT_DIRS:
+        return []
+
+    # Parse source file to get public functions/classes
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return []  # Let syntax checker handle this
+
+    public_names = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and not node.name.startswith('_'):
+            public_names.append(('func', node.name, node.lineno))
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith('_'):
+            public_names.append(('class', node.name, node.lineno))
+
+    if not public_names:
+        return []
+
+    # Find test files
+    test_funcs = _collect_test_functions(path.parent, test_dirs, test_patterns)
+
+    # Match public names to test functions
+    missing = []
+    for kind, name, lineno in public_names:
+        if kind == 'func':
+            # Look for test_foo or test_foo_*
+            if not any(tf.startswith(f'test_{name}') for tf in test_funcs):
+                missing.append(f"{name}()")
+        else:
+            # Look for TestFoo class or test_foo_*
+            lower_name = name.lower()
+            if not any(tf == f'Test{name}' or tf.startswith(f'test_{lower_name}') for tf in test_funcs):
+                missing.append(f"class {name}")
+
+    if not missing:
+        return []
+
+    covered = len(public_names) - len(missing)
+    total = len(public_names)
+    pct = int(100 * covered / total) if total > 0 else 0
+
+    return [Smell(
+        type="coverage",
+        line=0,
+        msg=f"Test coverage: {covered}/{total} ({pct}%). Missing: {', '.join(missing[:5])}" +
+            (f" +{len(missing)-5} more" if len(missing) > 5 else ""),
+        critical=False
+    )]
+
+
+def _collect_test_functions(source_dir: Path, test_dirs: list[str], test_patterns: list[str]) -> set[str]:
+    """Collect all test function/class names from test files."""
+    test_funcs = set()
+
+    # Look in test directories relative to source
+    search_dirs = [source_dir / td for td in test_dirs]
+    search_dirs.append(source_dir)  # Also check same directory
+
+    # Walk up to find project-level tests dir
+    for parent in source_dir.parents:
+        for td in test_dirs:
+            test_dir = parent / td
+            if test_dir.exists():
+                search_dirs.append(test_dir)
+        if (parent / 'pyproject.toml').exists() or (parent / 'setup.py').exists():
+            break  # Stop at project root
+
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+        for test_file in search_dir.glob('*.py'):
+            if any(re.match(p, test_file.name) for p in test_patterns):
+                try:
+                    tree = ast.parse(test_file.read_text())
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.FunctionDef) and node.name.startswith('test_'):
+                            test_funcs.add(node.name)
+                        elif isinstance(node, ast.ClassDef) and node.name.startswith('Test'):
+                            test_funcs.add(node.name)
+                except:
+                    pass  # Skip unparseable test files
+
+    return test_funcs
+
+
+# =============================================================================
+# TEST QUALITY DETECTION
+# =============================================================================
+
+def check_test_quality(content: str, file_path: str) -> list[Smell]:
+    """
+    Detect bad test patterns in test files.
+
+    Smells:
+    - test_no_assert: test function with no assert statements
+    - test_prints_success: uses print("success") instead of assert
+    - test_assert_true_only: only asserts True, never checks values
+    """
+    path = Path(file_path)
+
+    # Only check test files
+    if not any(re.match(p, path.name) for p in DEFAULT_TEST_PATTERNS):
+        return []
+
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    smells = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name.startswith('test_'):
+            issues = _analyze_test_function(node, content.split('\n'))
+            for issue_type, msg in issues:
+                smells.append(Smell(
+                    type=issue_type,
+                    line=node.lineno,
+                    msg=f"{node.name}(): {msg}",
+                    critical=False
+                ))
+
+    return smells
+
+
+def _analyze_test_function(func_node: ast.FunctionDef, lines: list[str]) -> list[tuple[str, str]]:
+    """Analyze a test function for quality issues."""
+    issues = []
+
+    # Count assertions
+    assert_count = 0
+    has_meaningful_assert = False
+    has_print_success = False
+
+    for node in ast.walk(func_node):
+        # Check for assert statements
+        if isinstance(node, ast.Assert):
+            assert_count += 1
+            # Check if it's just "assert True"
+            if isinstance(node.test, ast.Constant) and node.test.value is True:
+                pass  # Not meaningful
+            elif isinstance(node.test, ast.NameConstant) and getattr(node.test, 'value', None) is True:
+                pass  # Not meaningful (Python 3.7 compat)
+            else:
+                has_meaningful_assert = True
+
+        # Check for print("success") or similar
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id == 'print':
+                if node.args:
+                    arg = node.args[0]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        lower_val = arg.value.lower()
+                        if any(word in lower_val for word in ['success', 'passed', 'pass', 'ok']):
+                            has_print_success = True
+
+    # Generate issues
+    if assert_count == 0:
+        issues.append(('test_no_assert', 'No assertions - test validates nothing'))
+    elif not has_meaningful_assert:
+        issues.append(('test_assert_true_only', 'Only asserts True - no meaningful validation'))
+
+    if has_print_success:
+        issues.append(('test_prints_success', 'Prints success instead of asserting'))
+
+    return issues
+
+
+# =============================================================================
 # BUILTIN RULES REGISTRY
 # =============================================================================
 
@@ -261,4 +459,6 @@ BUILTIN_RULES = {
     "traceback": check_traceback_handling,
     "arch": check_architecture,
     "facade": check_facade_logic,
+    "coverage": check_test_coverage,
+    "test_quality": check_test_quality,
 }

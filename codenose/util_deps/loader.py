@@ -150,7 +150,9 @@ def init_config_dir(path: Path = None, include_examples: bool = True) -> Path:
                 "dup": {"enabled": True, "severity": "info", "config": {"min_block_size": 3}},
                 "long": {"enabled": True, "severity": "info", "config": {"max_file_lines": 400, "max_function_lines": 33}},
                 "log": {"enabled": False, "severity": "info"},
-                "import": {"enabled": True, "severity": "info"}
+                "import": {"enabled": True, "severity": "info"},
+                "coverage": {"enabled": True, "severity": "info", "config": {"test_dirs": ["tests", "test"]}},
+                "test_quality": {"enabled": True, "severity": "warning"}
             }
         }
         rules_file.write_text(json.dumps(default_rules, indent=2))

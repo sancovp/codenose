@@ -89,6 +89,10 @@ class ThemeConfig(BaseModel):
         "long": "\U0001f4cf",        # 📏
         "log": "\U0001f4dd",         # 📝
         "import": "\U0001f4e6",      # 📦
+        "coverage": "\U0001f9ea",    # 🧪
+        "test_no_assert": "\u274c",  # ❌
+        "test_prints_success": "\U0001f5a8\ufe0f",  # 🖨️
+        "test_assert_true_only": "\u2714\ufe0f",    # ✔️
     })
 
     def get_emoji(self, smell_type: str) -> str:

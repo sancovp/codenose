@@ -26,6 +26,7 @@ from .util_deps.formatters import format_output, format_smell_table
 
 
 ARCH_LOCK_FILE = Path.home() / ".claude" / ".codenose_arch_lock"
+TDD_MODE_FILE = Path("/tmp/codenose_tdd")
 
 
 class CodeNose:
@@ -76,6 +77,18 @@ class CodeNose:
         elif ARCH_LOCK_FILE.exists():
             ARCH_LOCK_FILE.unlink()
 
+    @staticmethod
+    def is_tdd_mode() -> bool:
+        """Check if TDD mode is enabled (coverage becomes critical)."""
+        if TDD_MODE_FILE.exists():
+            return TDD_MODE_FILE.read_text().strip().upper() == "ON"
+        return False
+
+    @staticmethod
+    def set_tdd_mode(enabled: bool) -> None:
+        """Enable or disable TDD mode."""
+        TDD_MODE_FILE.write_text("ON" if enabled else "OFF")
+
     @classmethod
     def init_config(cls, path: Optional[str] = None) -> Path:
         """Initialize config directory with default files."""
@@ -96,3 +109,16 @@ class CodeNose:
     def quick_scan_directory(cls, directory: str, max_files: int = 50) -> DirectoryScanResult:
         """Quick directory scan with default config."""
         return cls().scan_directory(directory, max_files)
+
+    @classmethod
+    def show_test_example(cls) -> str:
+        """Return the test reference example file content."""
+        example_path = Path(__file__).parent / "util_deps" / "examples" / "test_reference.py"
+        if example_path.exists():
+            return example_path.read_text()
+        return "Test reference example not found. Reinstall codenose."
+
+    @classmethod
+    def get_test_example_path(cls) -> str:
+        """Return the path to the test reference example file."""
+        return str(Path(__file__).parent / "util_deps" / "examples" / "test_reference.py")
