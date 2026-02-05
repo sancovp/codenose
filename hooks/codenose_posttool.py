@@ -47,6 +47,15 @@ def main():
                     s.critical = True
                 has_critical = True
 
+        # Check TDD mode - coverage warnings become CRITICAL
+        if nose.is_tdd_mode():
+            coverage_smells = [s for s in result.smells if s.type == "coverage"]
+            if coverage_smells:
+                for s in coverage_smells:
+                    s.critical = True
+                    s.msg = f"[TDD MODE] {s.msg}"
+                has_critical = True
+
         # Format and output
         output = nose.format_output(result)
         if output:

@@ -1,7 +1,7 @@
 {
   "name": "codenose",
   "description": "CodeNose - Configurable code smell detection for LLMs. Sniffs out duplicate logic, architecture violations, missing logging, and other blind spots.",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "author": {
     "name": "Isaac",
     "email": "isaac@example.com"
@@ -9,6 +9,9 @@
   "repository": "https://github.com/sancovp/codenose",
   "keywords": ["code-quality", "linting", "llm", "code-smell", "static-analysis"],
   "dependencies": {
-    "pip": ["codenose>=0.2.0"]
+    "pip": ["codenose>=0.4.0"]
+  },
+  "hooks": {
+    "PostToolUse": "hooks/codenose_posttool.py"
   }
 }

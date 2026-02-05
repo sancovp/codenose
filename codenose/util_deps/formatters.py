@@ -37,14 +37,32 @@ def format_smell_table(smells: list[Smell], theme: Optional[ThemeConfig] = None)
     return f"{len(smells)} {smell_word}(s) {critical_str}\n{legend}\n\n" + "\n".join(rows)
 
 
-def format_output(scan_result: ScanResult, theme: Optional[ThemeConfig] = None, arch_locked: bool = False) -> str:
-    """Format a scan result as tagged output block using theme."""
+def format_output(scan_result: ScanResult, theme: Optional[ThemeConfig] = None, arch_locked: bool = False, tdd_mode: bool = False) -> str:
+    """Format a scan result as tagged output block using theme.
+
+    When critical smells exist, uses system-reminder style for visibility.
+    """
     if not scan_result.smells:
         return ""
 
     theme = theme or ThemeConfig()
     lock_str = "[ARCH LOCK: ON]" if arch_locked else ""
+    tdd_str = "[TDD MODE: ON]" if tdd_mode else ""
     table = format_smell_table(scan_result.smells, theme)
-    tag = theme.output_tag
 
+    has_critical = any(s.critical or s.severity_override == "critical" for s in scan_result.smells)
+
+    # Use system-reminder style when critical for agent attention
+    if has_critical:
+        flags = " ".join(filter(None, [lock_str, tdd_str]))
+        return f"""<system-reminder>
+⚠️ CODENOSE CRITICAL - ACTION REQUIRED {flags}
+
+{table}
+
+You MUST address these issues before proceeding. Do not ignore this warning.
+</system-reminder>"""
+
+    # Normal output for non-critical
+    tag = theme.output_tag
     return f"<{tag}>\n{table} {lock_str}\n</{tag}>"

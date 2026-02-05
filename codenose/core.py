@@ -57,7 +57,7 @@ class CodeNose:
 
     def format_output(self, result: ScanResult) -> str:
         """Format scan result using theme."""
-        return format_output(result, self.theme, arch_locked=self.is_arch_locked())
+        return format_output(result, self.theme, arch_locked=self.is_arch_locked(), tdd_mode=self.is_tdd_mode())
 
     def format_table(self, result: ScanResult) -> str:
         """Format smells as table using theme."""
